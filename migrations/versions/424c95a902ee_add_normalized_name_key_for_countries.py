@@ -42,3 +42,9 @@ def upgrade():
 
     with op.batch_alter_table("countries", recreate="always") as batch_op:
         batch_op.alter_column("name_key", existing_type=sa.String(length=512), nullable=False)
+        batch_op.create_index("ux_countries_name_key", ["name_key"], unique=True)
+
+def downgrade():
+    with op.batch_alter_table("countries", recreate="always") as batch_op:
+        batch_op.drop_index("ux_countries_name_key")
+        batch_op.drop_column("name_key")
