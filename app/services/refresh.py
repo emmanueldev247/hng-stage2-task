@@ -9,6 +9,8 @@ from app.clients.external import fetch_countries_and_rates, ExternalClientError
 from app.models.country import Country
 from app.models.meta import MetaCache
 from app.services.image import generate_summary_image
+from app.utils.text import normalize_key
+
 
 def _extract_currency_code(country: Dict[str, Any]) -> Optional[str]:
     """Extract the first currency code from the country payload"""
@@ -52,9 +54,9 @@ async def run_refresh(db: Session) -> Dict[str, Any]:
     updated = 0
 
     with db.begin():
-        existing_rows = {
-            name.lower(): (id_,)
-            for (id_, name) in db.execute(select(Country.id, Country.name)).all()
+        existing_by_key = {
+            (nk or ""): id_
+            for (id_, nk) in db.execute(select(Country.id, Country.name_key)).all()
         }
 
         for c in countries_payload:
@@ -62,12 +64,14 @@ async def run_refresh(db: Session) -> Dict[str, Any]:
             if not name:
                 continue
 
-            name_lower = name.lower()
+            name_key = normalize_key(name)
+            if not name_key:
+                continue
+
             capital = (c.get("capital") or None)
             region = (c.get("region") or None)
             population = c.get("population")
             population = int(population or 0)
-
             flag_url = c.get("flag") or None
 
             currency_code = _extract_currency_code(c)
@@ -87,11 +91,13 @@ async def run_refresh(db: Session) -> Dict[str, Any]:
                     multiplier = randint(1000, 2000)
                     estimated_gdp = (population * multiplier) / exchange_rate if exchange_rate else None
 
-            if name_lower in existing_rows:
+            if name_key in existing_by_key:
                 country_row: Country = db.scalar(
-                    select(Country).where(func.lower(Country.name) == name_lower)
+                    select(Country).where(Country.name_key == name_key)
                 )
                 if country_row:
+                    country_row.name = name
+                    country_row.name_key = name_key
                     country_row.capital = capital
                     country_row.region = region
                     country_row.population = population
@@ -104,6 +110,7 @@ async def run_refresh(db: Session) -> Dict[str, Any]:
             else:
                 new_row = Country(
                     name=name,
+                    name_key=name_key,
                     capital=capital,
                     region=region,
                     population=population,

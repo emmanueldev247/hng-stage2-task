@@ -9,6 +9,7 @@ from app.models.country import Country
 from app.schemas.country import CountryOut
 from app.services.image import SUMMARY_PATH
 from app.services.refresh import run_refresh
+from app.utils.text import normalize_key
 
 router = APIRouter(prefix="/countries", tags=["countries"])
 
@@ -67,14 +68,16 @@ def list_countries(
 
 @router.get("/{name}", response_model=CountryOut)
 def get_country(name: str, db: Session = Depends(get_db)):
-    row = db.scalar(select(Country).where(func.lower(Country.name) == name.lower()))
+    key = normalize_key(name)
+    row = db.scalar(select(Country).where(Country.name_key == key))
     if not row:
         raise HTTPException(status_code=404, detail={"error": "Country not found"})
     return CountryOut.model_validate(row)
 
 @router.delete("/{name}", status_code=204)
 def delete_country(name: str, db: Session = Depends(get_db)):
-    row = db.scalar(select(Country).where(func.lower(Country.name) == name.lower()))
+    key = normalize_key(name)
+    row = db.scalar(select(Country).where(Country.name_key == key))
     if not row:
         raise HTTPException(status_code=404, detail={"error": "Country not found"})
     db.delete(row)
