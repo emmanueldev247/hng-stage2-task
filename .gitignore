@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+env/
+venv/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Envs & local
+.env
+*.db
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+
+cache/
